@@ -111,6 +111,10 @@ func (n Net6) Count() uint128.Uint128 {
 	moreOnes, _ := n.Hostmask.Size()
 	exp -= moreOnes
 
+	if exp == 128 {
+		return uint128.Max
+	}
+
 	z := uint128.New(2, 0)
 	return z.Lsh(uint(exp - 1))
 }
@@ -126,7 +130,7 @@ func (n Net6) Enumerate(size, offset int) []net.IP {
 		return nil
 	}
 
-	count := getEnumerationCount(size, offset, n.Count())
+	count := getEnumerationCount(uint(size), uint(offset), n.Count())
 
 	// Handle edge-case mask sizes
 	ones, _ := n.Mask().Size()
@@ -151,8 +155,8 @@ func (n Net6) Enumerate(size, offset int) []net.IP {
 	// our worker-pool based on request size; and [b] don't have to worry
 	// about exhausting some upper bound of goroutines -- enumerate requests
 	// are limited to MaxUint32, so we won't generate more than 65536
-	limit := uint32(65535)
-	pos := uint32(0)
+	var limit uint = 65535
+	var pos uint = 0
 	wg := sync.WaitGroup{}
 	for pos < count {
 		incr := limit
@@ -160,12 +164,14 @@ func (n Net6) Enumerate(size, offset int) []net.IP {
 			incr = count - pos
 		}
 		wg.Add(1)
-		go func(fip net.IP, pos, count uint32) {
+		go func(fip net.IP, pos, count uint) {
 			defer wg.Done()
-			addrs[pos], _ = IncrementIP6WithinHostmask(fip, n.Hostmask, uint128.New(uint64(pos), 0))
-			for i := uint32(1); i < count; i++ {
-				pos++
-				addrs[pos], _ = NextIP6WithinHostmask(addrs[pos-1], n.Hostmask)
+			firstip := CopyIP(fip)
+			lpos := pos
+			addrs[lpos], _ = IncrementIP6WithinHostmask(firstip, n.Hostmask, uint128.New(uint64(lpos), 0))
+			for i := uint(1); i < count; i++ {
+				lpos++
+				addrs[lpos], _ = NextIP6WithinHostmask(addrs[lpos-1], n.Hostmask)
 			}
 		}(fip, pos, incr)
 		pos = pos + incr
@@ -181,11 +187,7 @@ func (n Net6) FirstAddress() net.IP {
 
 // LastAddress returns the last usable address for the represented network
 func (n Net6) LastAddress() net.IP {
-	xip := make([]byte, len(n.IPNet.IP))
-	wc := n.wildcard()
-	for pos := range n.IP() {
-		xip[pos] = n.IP()[pos] + (wc[pos] - n.Hostmask[pos])
-	}
+	xip, _ := n.finalAddress()
 	return xip
 }
 
@@ -334,6 +336,20 @@ func (n Net6) contained(ip net.IP) bool {
 	return true
 }
 
+// finalAddress is here mostly because it also exists in Net4, but there
+// are cases where it is valuable to have a method for both Net
+// implementations that returns the last address in the netblock
+func (n Net6) finalAddress() (net.IP, int) {
+	xip := make([]byte, len(n.IPNet.IP))
+	ones, _ := n.Mask().Size()
+
+	wc := n.wildcard()
+	for pos := range n.IP() {
+		xip[pos] = n.IP()[pos] + (wc[pos] - n.Hostmask[pos])
+	}
+	return xip, ones
+}
+
 func (n Net6) wildcard() net.IPMask {
 	wc := make([]byte, len(n.Mask()))
 	for i, b := range n.Mask() {
@@ -344,19 +360,19 @@ func (n Net6) wildcard() net.IPMask {
 
 // getEnumerationCount returns the size of the array needed to satisfy an
 // Enumerate request. Mostly split out to ease testing of larger values
-func getEnumerationCount(reqSize, offset int, count uint128.Uint128) uint32 {
-	sizes := []uint32{math.MaxUint32}
+func getEnumerationCount(reqSize, offset uint, count uint128.Uint128) uint {
+	sizes := []uint{math.MaxUint32}
 
 	if count.Cmp64(math.MaxUint32) <= 0 {
-		realCount := uint32(0)
-		if int(count.Lo) > offset {
-			realCount = uint32(count.Lo) - uint32(offset)
+		var realCount uint = 0
+		if uint(count.Lo) > offset {
+			realCount = uint(count.Lo) - offset
 		}
 		sizes = append(sizes, realCount)
 	}
 
 	if uint32(reqSize) != 0 {
-		sizes = append(sizes, uint32(reqSize))
+		sizes = append(sizes, reqSize)
 	}
 
 	sort.Slice(sizes, func(i, j int) bool { return sizes[i] < sizes[j] })

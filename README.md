@@ -1,8 +1,7 @@
 # IPLib
-[![Documentation](https://godoc.org/github.com/c-robinson/iplib?status.svg)](http://godoc.org/github.com/c-robinson/iplib)
-[![CircleCI](https://circleci.com/gh/c-robinson/iplib/tree/main.svg?style=svg)](https://circleci.com/gh/c-robinson/iplib/tree/main)
+[![Documentation](https://godoc.org/github.com/c-robinson/iplib?status.svg)](https://pkg.go.dev/github.com/c-robinson/iplib/v2)
 [![Go Report Card](https://goreportcard.com/badge/github.com/c-robinson/iplib)](https://goreportcard.com/report/github.com/c-robinson/iplib)
-[![Coverage Status](https://coveralls.io/repos/github/c-robinson/iplib/badge.svg?branch=main)](https://coveralls.io/github/c-robinson/iplib?branch=main)
+[![Tests](https://img.shields.io/github/actions/workflow/status/c-robinson/iplib/test.yml?branch=main&longCache=true&label=Test&logo=github%20actions&logoColor=fff)](https://github.com/c-robinson/iplib/actions?query=workflow%3ATest)
 
 **ATTENTION** version 2.0.0 is a breaking change from previous versions for
 handling IPv6 addresses (functions for IPv4 are unchanged). Calls that result
@@ -212,3 +211,8 @@ fmt.Println(n.Hostmask.String())        // 0000000000000000f0ffffffffffffff
 fmt.Println(n.Subnet(0, 60))            // [2001:db8::/57 2001:db8:0:80::/57] <nil>
 fmt.Println(n.Supernet(0, 60))          // 2001:db8::/55 <nil>
 ```
+
+## Test driving
+[IPfool](github.com/c-robinson/ipfool) is a simple command-line tool that I
+wrote to test many of the features within this library and might be useful in
+evaluating it.

@@ -86,10 +86,7 @@ func (bi ByIP) Swap(a, b int) {
 // implementation, see CompareIPs()
 func (bi ByIP) Less(a, b int) bool {
 	val := CompareIPs(bi[a], bi[b])
-	if val == -1 {
-		return true
-	}
-	return false
+	return val == -1
 }
 
 // ARPAToIP takes a strings containing an ARPA domain and returns the
@@ -191,8 +188,7 @@ func CompareNets(a, b Net) int {
 // CopyIP creates a new net.IP object containing the same data as the supplied
 // net.IP (e.g. creates a new array and duplicates the contents)
 func CopyIP(ip net.IP) net.IP {
-	var xip []byte
-	xip = make([]byte, len(ip))
+	xip := make([]byte, len(ip))
 	copy(xip, ip)
 	return xip
 }
@@ -323,7 +319,7 @@ func ForceIP4(ip net.IP) net.IP {
 // or ':'
 func HexStringToIP(s string) net.IP {
 	normalize := func(c rune) rune {
-		if strings.IndexRune(":.", c) == -1 {
+		if !strings.ContainsRune(":.", c) {
 			return c
 		}
 		return -1
@@ -380,6 +376,22 @@ func IPToBigint(ip net.IP) *big.Int {
 	z := new(big.Int)
 	z.SetBytes(ip)
 	return z
+}
+
+// IPToBinarySlice returns the given net.IP as a []byte whose
+// values are the binary representation of the IP
+func IPToBinarySlice(ip net.IP) []byte {
+	var bits []byte
+	if EffectiveVersion(ip) == 4 {
+		ip = ForceIP4(ip)
+	}
+	for _, octet := range ip {
+		for i := 7; i >= 0; i-- {
+			bit := (octet >> i) & 1
+			bits = append(bits, bit)
+		}
+	}
+	return bits
 }
 
 // IPToBinaryString returns the given net.IP as a binary string
@@ -602,9 +614,4 @@ func generateNetLimits(version int, filler byte) net.IP {
 		b[i] = filler
 	}
 	return b
-}
-
-func getCloneBigInt(z *big.Int) *big.Int {
-	nz := new(big.Int)
-	return nz.Set(z)
 }
